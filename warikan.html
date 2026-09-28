@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>旅の割り勘精算</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#eef4f3;--card:#fff;--text:#1d2b2a;--sub:#5f7472;--line:#d5e2e0;--input:#f6faf9;--a:#0e8c86;--b:#e8743b;--res:#12403f;--resfg:#fff;--gold:#ffd166}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1a19;--card:#182827;--text:#e6f0ef;--sub:#93aaa8;--line:#2a3f3d;--input:#0f1a19;--a:#34c3bb;--b:#ff9a62;--res:#0a2c2b}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic','Hiragino Maru Gothic ProN','Hiragino Sans','Yu Gothic',sans-serif}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px}
+.inp{background:var(--input);border:1px solid var(--line);border-radius:12px;color:var(--text);width:100%;padding:12px;font-size:16px}
+.inp:focus,button:focus-visible{outline:3px solid var(--a);outline-offset:1px}
+.sub{color:var(--sub)}
+.pick{border:2px solid var(--line);border-radius:12px;padding:12px;font-weight:700;background:var(--input);color:var(--text)}
+.pick.on-a{background:var(--a);border-color:var(--a);color:#fff}
+.pick.on-b{background:var(--b);border-color:var(--b);color:#fff}
+</style>
+</head>
+<body>
+<main class="max-w-md mx-auto px-4 py-5 space-y-4">
+  <h1 class="text-xl font-black">旅の割り勘精算</h1>
+
+  <!-- 清算結果 -->
+  <section aria-live="polite" class="rounded-3xl p-5 shadow-lg" style="background:var(--res);color:var(--resfg)">
+    <p class="text-sm opacity-80">現在の総額</p>
+    <p id="total" class="text-4xl font-black">0円</p>
+    <div class="grid grid-cols-2 gap-3 mt-4 text-sm">
+      <div class="rounded-xl p-3" style="background:rgba(255,255,255,.1)"><p id="lblA" class="opacity-80"></p><p id="sumA" class="text-lg font-bold">0円</p></div>
+      <div class="rounded-xl p-3" style="background:rgba(255,255,255,.1)"><p id="lblB" class="opacity-80"></p><p id="sumB" class="text-lg font-bold">0円</p></div>
+    </div>
+    <div class="mt-4 rounded-2xl p-4 text-center" style="background:var(--gold);color:#3a2a00">
+      <p class="text-xs font-bold">精算結果</p>
+      <p id="settle" class="text-lg font-black leading-snug mt-1"></p>
+    </div>
+  </section>
+
+  <!-- 入力 -->
+  <section class="card p-4 space-y-3">
+    <h2 class="font-bold">支払いを追加</h2>
+    <input id="memo" class="inp" type="text" placeholder="品名・メモ（例：レンタカー代）" maxlength="40">
+    <input id="amount" class="inp" type="number" inputmode="numeric" min="1" placeholder="金額（円）">
+    <div>
+      <p class="text-sm sub mb-1">支払った人</p>
+      <div class="grid grid-cols-2 gap-2">
+        <button type="button" id="pickA" class="pick"></button>
+        <button type="button" id="pickB" class="pick"></button>
+      </div>
+    </div>
+    <p id="err" class="text-sm font-bold" style="color:var(--b)" role="alert"></p>
+    <button type="button" id="add" class="w-full rounded-xl py-3 font-black text-white text-lg" style="background:var(--a)">追加する</button>
+  </section>
+
+  <!-- 履歴 -->
+  <section class="card p-4">
+    <h2 class="font-bold mb-2">履歴 <span id="count" class="sub text-sm font-normal"></span></h2>
+    <ul id="list" class="divide-y" style="--tw-divide-opacity:1"></ul>
+    <p id="empty" class="sub text-sm py-4 text-center">まだ支払いがありません。上のフォームから追加してください。</p>
+  </section>
+
+  <!-- 設定 -->
+  <section class="card p-4 space-y-3">
+    <h2 class="font-bold">2人の名前</h2>
+    <div class="grid grid-cols-2 gap-2">
+      <label class="text-sm sub">1人目<input id="nameA" class="inp mt-1" maxlength="10"></label>
+      <label class="text-sm sub">2人目<input id="nameB" class="inp mt-1" maxlength="10"></label>
+    </div>
+  </section>
+
+  <button type="button" id="reset" class="w-full rounded-xl py-3 font-bold border-2" style="border-color:var(--b);color:var(--b)">すべてのデータをリセット</button>
+</main>
+
+<script>
+const KEY='warikan-v1';
+let S={names:['自分','相手'],items:[],who:0};
+try{const r=localStorage.getItem(KEY);if(r){const p=JSON.parse(r);if(p&&Array.isArray(p.items)&&Array.isArray(p.names))S={names:p.names,items:p.items,who:0}}}catch(e){}
+const $=id=>document.getElementById(id);
+const yen=n=>Math.round(n).toLocaleString('ja-JP')+'円';
+const nm=i=>S.names[i]||(i?'相手':'自分');
+function save(){try{localStorage.setItem(KEY,JSON.stringify({names:S.names,items:S.items}))}catch(e){}}
+
+function render(){
+  const sum=[0,0];S.items.forEach(x=>sum[x.who]+=x.amount);
+  const total=sum[0]+sum[1];
+  $('total').textContent=yen(total);
+  $('lblA').textContent=nm(0)+'の立替合計';$('lblB').textContent=nm(1)+'の立替合計';
+  $('sumA').textContent=yen(sum[0]);$('sumB').textContent=yen(sum[1]);
+  const diff=Math.round((sum[0]-sum[1])/2);
+  $('settle').textContent = total===0 ? 'まだ支払いがありません'
+    : diff===0 ? '精算なし（ぴったり半分ずつです）'
+    : diff>0 ? `【 ${nm(1)} 】が【 ${nm(0)} 】に 【 ${yen(diff)} 】 支払う`
+             : `【 ${nm(0)} 】が【 ${nm(1)} 】に 【 ${yen(-diff)} 】 支払う`;
+  ['A','B'].forEach((k,i)=>{const b=$('pick'+k);b.textContent=nm(i);b.className='pick'+(S.who===i?' on-'+k.toLowerCase():'');b.setAttribute('aria-pressed',S.who===i)});
+  const ul=$('list');ul.textContent='';
+  S.items.slice().reverse().forEach(x=>{
+    const li=document.createElement('li');li.className='flex items-center gap-3 py-3';li.style.borderColor='var(--line)';
+    const dot=document.createElement('span');dot.className='w-3 h-3 rounded-full shrink-0';dot.style.background=x.who?'var(--b)':'var(--a)';
+    const mid=document.createElement('div');mid.className='flex-1 min-w-0';
+    const t=document.createElement('p');t.className='font-bold truncate';t.textContent=x.memo||'（メモなし）';
+    const s=document.createElement('p');s.className='text-xs sub';s.textContent=nm(x.who)+'が立替';
+    mid.append(t,s);
+    const a=document.createElement('span');a.className='font-black whitespace-nowrap';a.textContent=yen(x.amount);
+    const d=document.createElement('button');d.type='button';d.setAttribute('aria-label',(x.memo||'この項目')+'を削除');d.className='p-2 rounded-lg sub';
+    d.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg>';
+    d.onclick=()=>{S.items=S.items.filter(i=>i.id!==x.id);save();render()};
+    li.append(dot,mid,a,d);ul.append(li);
+  });
+  $('empty').style.display=S.items.length?'none':'block';
+  $('count').textContent=S.items.length?`（${S.items.length}件）`:'';
+}
+
+$('pickA').onclick=()=>{S.who=0;render()};
+$('pickB').onclick=()=>{S.who=1;render()};
+$('add').onclick=()=>{
+  const amount=Math.round(Number($('amount').value));
+  if(!amount||amount<=0){$('err').textContent='金額を1円以上で入力してください。';$('amount').focus();return}
+  $('err').textContent='';
+  S.items.push({id:Date.now()+Math.random(),memo:$('memo').value.trim(),amount,who:S.who});
+  $('memo').value='';$('amount').value='';$('memo').focus();save();render();
+};
+[['nameA',0],['nameB',1]].forEach(([id,i])=>{
+  $(id).value=S.names[i];
+  $(id).oninput=e=>{S.names[i]=e.target.value.trim();save();render()};
+});
+let armed=false,tm;
+function disarm(){armed=false;clearTimeout(tm);$('reset').textContent='すべてのデータをリセット';$('reset').style.background='transparent';$('reset').style.color='var(--b)'}
+$('reset').onclick=()=>{
+  if(!S.items.length)return;
+  if(!armed){
+    armed=true;
+    $('reset').textContent='もう一度タップで全削除（元に戻せません）';
+    $('reset').style.background='var(--b)';$('reset').style.color='#fff';
+    tm=setTimeout(disarm,4000);
+    return;
+  }
+  disarm();S.items=[];save();render();
+};
+render();
+</script>
+</body>
+</html>

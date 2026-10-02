@@ -8,97 +8,129 @@
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
---bg:#eef4f3;--card:#fff;--text:#1d2b2a;--sub:#5f7472;--line:#d5e2e0;--input:#f6faf9;--a:#0e8c86;--b:#e8743b;--res:#12403f;--resfg:#fff;--gold:#ffd166}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1a19;--card:#182827;--text:#e6f0ef;--sub:#93aaa8;--line:#2a3f3d;--input:#0f1a19;--a:#34c3bb;--b:#ff9a62;--res:#0a2c2b}}
+--bg:#eef4f3;--card:#fff;--text:#1d2b2a;--sub:#5f7472;--line:#d5e2e0;--input:#f6faf9;--res:#12403f;--resfg:#fff;--gold:#ffd166;--b:#e8743b;--accent:#0e8c86}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1a19;--card:#182827;--text:#e6f0ef;--sub:#93aaa8;--line:#2a3f3d;--input:#0f1a19;--res:#0a2c2b;--b:#ff9a62;--accent:#34c3bb}}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{background:var(--bg);color:var(--text);font-family:'Zen Maru Gothic','Hiragino Maru Gothic ProN','Hiragino Sans','Yu Gothic',sans-serif}
 .card{background:var(--card);border:1px solid var(--line);border-radius:18px}
 .inp{background:var(--input);border:1px solid var(--line);border-radius:12px;color:var(--text);width:100%;padding:12px;font-size:16px}
-.inp:focus,button:focus-visible{outline:3px solid var(--a);outline-offset:1px}
+.inp:focus,button:focus-visible{outline:3px solid var(--res);outline-offset:1px}
 .sub{color:var(--sub)}
-.pick{border:2px solid var(--line);border-radius:12px;padding:12px;font-weight:700;background:var(--input);color:var(--text)}
-.pick.on-a{background:var(--a);border-color:var(--a);color:#fff}
-.pick.on-b{background:var(--b);border-color:var(--b);color:#fff}
+.pick{border:2px solid var(--line);border-radius:12px;padding:10px;font-weight:700;background:var(--input);color:var(--text);font-size:14px}
+.pick.on{background:var(--res);border-color:var(--res);color:#fff}
 </style>
 </head>
 <body>
 <main class="max-w-md mx-auto px-4 py-5 space-y-4">
   <h1 class="text-xl font-black">旅の割り勘精算</h1>
 
-  <!-- 清算結果 -->
   <section aria-live="polite" class="rounded-3xl p-5 shadow-lg" style="background:var(--res);color:var(--resfg)">
     <p class="text-sm opacity-80">現在の総額</p>
     <p id="total" class="text-4xl font-black">0円</p>
-    <div class="grid grid-cols-2 gap-3 mt-4 text-sm">
-      <div class="rounded-xl p-3" style="background:rgba(255,255,255,.1)"><p id="lblA" class="opacity-80"></p><p id="sumA" class="text-lg font-bold">0円</p></div>
-      <div class="rounded-xl p-3" style="background:rgba(255,255,255,.1)"><p id="lblB" class="opacity-80"></p><p id="sumB" class="text-lg font-bold">0円</p></div>
-    </div>
-    <div class="mt-4 rounded-2xl p-4 text-center" style="background:var(--gold);color:#3a2a00">
-      <p class="text-xs font-bold">精算結果</p>
-      <p id="settle" class="text-lg font-black leading-snug mt-1"></p>
+    <div id="sums" class="grid grid-cols-2 gap-2 mt-4 text-sm"></div>
+    <div class="mt-4 rounded-2xl p-4" style="background:var(--gold);color:#3a2a00">
+      <p class="text-xs font-bold text-center">精算結果</p>
+      <ul id="settle" class="mt-1 space-y-1 text-center font-black"></ul>
     </div>
   </section>
 
-  <!-- 入力 -->
   <section class="card p-4 space-y-3">
     <h2 class="font-bold">支払いを追加</h2>
     <input id="memo" class="inp" type="text" placeholder="品名・メモ（例：レンタカー代）" maxlength="40">
     <input id="amount" class="inp" type="number" inputmode="numeric" min="1" placeholder="金額（円）">
     <div>
       <p class="text-sm sub mb-1">支払った人</p>
-      <div class="grid grid-cols-2 gap-2">
-        <button type="button" id="pickA" class="pick"></button>
-        <button type="button" id="pickB" class="pick"></button>
-      </div>
+      <div id="picker" class="grid grid-cols-2 gap-2"></div>
     </div>
     <p id="err" class="text-sm font-bold" style="color:var(--b)" role="alert"></p>
-    <button type="button" id="add" class="w-full rounded-xl py-3 font-black text-white text-lg" style="background:var(--a)">追加する</button>
+    <button type="button" id="add" class="w-full rounded-xl py-3 font-black text-white text-lg" style="background:var(--res)">追加する</button>
   </section>
 
-  <!-- 履歴 -->
   <section class="card p-4">
     <h2 class="font-bold mb-2">履歴 <span id="count" class="sub text-sm font-normal"></span></h2>
     <ul id="list" class="divide-y" style="--tw-divide-opacity:1"></ul>
     <p id="empty" class="sub text-sm py-4 text-center">まだ支払いがありません。上のフォームから追加してください。</p>
   </section>
 
-  <!-- 設定 -->
   <section class="card p-4 space-y-3">
-    <h2 class="font-bold">2人の名前</h2>
-    <div class="grid grid-cols-2 gap-2">
-      <label class="text-sm sub">1人目<input id="nameA" class="inp mt-1" maxlength="10"></label>
-      <label class="text-sm sub">2人目<input id="nameB" class="inp mt-1" maxlength="10"></label>
-    </div>
+    <h2 class="font-bold">参加メンバー</h2>
+    <ul id="members" class="space-y-2"></ul>
+    <button type="button" id="addMember" class="w-full rounded-xl py-2 font-bold border-2" style="border-color:var(--accent);color:var(--accent)">+ メンバーを追加</button>
+    <p class="text-xs sub">最少2人まで。削除すると、その人の履歴も一緒に消えます。</p>
   </section>
 
   <button type="button" id="reset" class="w-full rounded-xl py-3 font-bold border-2" style="border-color:var(--b);color:var(--b)">すべてのデータをリセット</button>
 </main>
 
 <script>
-const KEY='warikan-v1';
-let S={names:['自分','相手'],items:[],who:0};
-try{const r=localStorage.getItem(KEY);if(r){const p=JSON.parse(r);if(p&&Array.isArray(p.items)&&Array.isArray(p.names))S={names:p.names,items:p.items,who:0}}}catch(e){}
+const KEY='warikan-v2';
+let S={names:['1','2'],items:[],who:0};
+try{
+  const r=localStorage.getItem(KEY);
+  if(r){const p=JSON.parse(r);if(p&&Array.isArray(p.items)&&Array.isArray(p.names)&&p.names.length>=2)S={names:p.names,items:p.items,who:0}}
+  else{
+    const old=localStorage.getItem('warikan-v1');
+    if(old){const p=JSON.parse(old);if(p&&Array.isArray(p.items)&&Array.isArray(p.names))S={names:p.names,items:p.items,who:0}}
+  }
+}catch(e){}
+
 const $=id=>document.getElementById(id);
 const yen=n=>Math.round(n).toLocaleString('ja-JP')+'円';
-const nm=i=>S.names[i]||(i?'相手':'自分');
+const nm=i=>(S.names[i]&&S.names[i].trim())||`${i+1}`;
 function save(){try{localStorage.setItem(KEY,JSON.stringify({names:S.names,items:S.items}))}catch(e){}}
 
-function render(){
-  const sum=[0,0];S.items.forEach(x=>sum[x.who]+=x.amount);
-  const total=sum[0]+sum[1];
+function render(){renderTop();renderMembers();}
+
+function renderTop(){
+  const n=S.names.length;
+  const sum=new Array(n).fill(0);
+  S.items.forEach(x=>{if(x.who<n)sum[x.who]+=x.amount});
+  const total=sum.reduce((a,b)=>a+b,0);
+  const share=total/n;
   $('total').textContent=yen(total);
-  $('lblA').textContent=nm(0)+'の立替合計';$('lblB').textContent=nm(1)+'の立替合計';
-  $('sumA').textContent=yen(sum[0]);$('sumB').textContent=yen(sum[1]);
-  const diff=Math.round((sum[0]-sum[1])/2);
-  $('settle').textContent = total===0 ? 'まだ支払いがありません'
-    : diff===0 ? '精算なし（ぴったり半分ずつです）'
-    : diff>0 ? `【 ${nm(1)} 】が【 ${nm(0)} 】に 【 ${yen(diff)} 】 支払う`
-             : `【 ${nm(0)} 】が【 ${nm(1)} 】に 【 ${yen(-diff)} 】 支払う`;
-  ['A','B'].forEach((k,i)=>{const b=$('pick'+k);b.textContent=nm(i);b.className='pick'+(S.who===i?' on-'+k.toLowerCase():'');b.setAttribute('aria-pressed',S.who===i)});
+
+  const sumsEl=$('sums');sumsEl.textContent='';
+  sum.forEach((v,i)=>{
+    const d=document.createElement('div');d.className='rounded-xl p-3';d.style.background='rgba(255,255,255,.1)';
+    d.innerHTML=`<p class="opacity-80 truncate">${nm(i)}の立替合計</p><p class="text-lg font-bold">${yen(v)}</p>`;
+    sumsEl.append(d);
+  });
+
+  const settleEl=$('settle');settleEl.textContent='';
+  if(total===0){
+    const li=document.createElement('li');li.textContent='まだ支払いがありません';settleEl.append(li);
+  }else{
+    const diff=sum.map(v=>v-share);
+    const debtors=diff.map((v,i)=>({i,v})).filter(x=>x.v<-0.5).sort((a,b)=>a.v-b.v);
+    const creditors=diff.map((v,i)=>({i,v})).filter(x=>x.v>0.5).sort((a,b)=>b.v-a.v);
+    let di=0,ci=0;const txns=[];
+    while(di<debtors.length&&ci<creditors.length){
+      const d=debtors[di],c=creditors[ci];
+      const amt=Math.min(-d.v,c.v);
+      if(amt>=1)txns.push({from:d.i,to:c.i,amt});
+      d.v+=amt;c.v-=amt;
+      if(Math.abs(d.v)<1)di++;
+      if(Math.abs(c.v)<1)ci++;
+    }
+    if(txns.length===0){const li=document.createElement('li');li.textContent='精算なし（ぴったり均等です）';settleEl.append(li)}
+    txns.forEach(t=>{
+      const li=document.createElement('li');
+      li.textContent=`【 ${nm(t.from)} 】が【 ${nm(t.to)} 】に 【 ${yen(t.amt)} 】支払う`;
+      settleEl.append(li);
+    });
+  }
+
+  const picker=$('picker');picker.textContent='';
+  S.names.forEach((name,i)=>{
+    const b=document.createElement('button');b.type='button';b.textContent=nm(i);
+    b.className='pick'+(S.who===i?' on':'');b.setAttribute('aria-pressed',S.who===i);
+    b.onclick=()=>{S.who=i;render()};
+    picker.append(b);
+  });
+
   const ul=$('list');ul.textContent='';
   S.items.slice().reverse().forEach(x=>{
     const li=document.createElement('li');li.className='flex items-center gap-3 py-3';li.style.borderColor='var(--line)';
-    const dot=document.createElement('span');dot.className='w-3 h-3 rounded-full shrink-0';dot.style.background=x.who?'var(--b)':'var(--a)';
     const mid=document.createElement('div');mid.className='flex-1 min-w-0';
     const t=document.createElement('p');t.className='font-bold truncate';t.textContent=x.memo||'（メモなし）';
     const s=document.createElement('p');s.className='text-xs sub';s.textContent=nm(x.who)+'が立替';
@@ -107,14 +139,35 @@ function render(){
     const d=document.createElement('button');d.type='button';d.setAttribute('aria-label',(x.memo||'この項目')+'を削除');d.className='p-2 rounded-lg sub';
     d.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg>';
     d.onclick=()=>{S.items=S.items.filter(i=>i.id!==x.id);save();render()};
-    li.append(dot,mid,a,d);ul.append(li);
+    li.append(mid,a,d);ul.append(li);
   });
   $('empty').style.display=S.items.length?'none':'block';
   $('count').textContent=S.items.length?`（${S.items.length}件）`:'';
 }
 
-$('pickA').onclick=()=>{S.who=0;render()};
-$('pickB').onclick=()=>{S.who=1;render()};
+function renderMembers(){
+  const mem=$('members');mem.textContent='';
+  S.names.forEach((name,i)=>{
+    const li=document.createElement('li');li.className='flex items-center gap-2';
+    const inp=document.createElement('input');inp.className='inp';inp.value=name;inp.maxLength=10;
+    inp.oninput=e=>{S.names[i]=e.target.value;save();renderTop()};
+    inp.onblur=e=>{if(!e.target.value.trim()){S.names[i]=`${i+1}`;save();render()}};
+    li.append(inp);
+    if(S.names.length>2){
+      const del=document.createElement('button');del.type='button';del.className='p-2 sub';del.setAttribute('aria-label',(name||(i+1))+'を削除');
+      del.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg>';
+      del.onclick=()=>{
+        S.items=S.items.filter(x=>x.who!==i).map(x=>x.who>i?{...x,who:x.who-1}:x);
+        S.names.splice(i,1);
+        if(S.who===i)S.who=0;else if(S.who>i)S.who--;
+        save();render();
+      };
+      li.append(del);
+    }
+    mem.append(li);
+  });
+}
+
 $('add').onclick=()=>{
   const amount=Math.round(Number($('amount').value));
   if(!amount||amount<=0){$('err').textContent='金額を1円以上で入力してください。';$('amount').focus();return}
@@ -122,14 +175,14 @@ $('add').onclick=()=>{
   S.items.push({id:Date.now()+Math.random(),memo:$('memo').value.trim(),amount,who:S.who});
   $('memo').value='';$('amount').value='';$('memo').focus();save();render();
 };
-[['nameA',0],['nameB',1]].forEach(([id,i])=>{
-  $(id).value=S.names[i];
-  $(id).oninput=e=>{S.names[i]=e.target.value.trim();save();render()};
-});
+$('addMember').onclick=()=>{
+  if(S.names.length>=10){alert('メンバーは最大10人までです。');return}
+  S.names.push(`${S.names.length+1}`);save();render();
+};
 let armed=false,tm;
 function disarm(){armed=false;clearTimeout(tm);$('reset').textContent='すべてのデータをリセット';$('reset').style.background='transparent';$('reset').style.color='var(--b)'}
 $('reset').onclick=()=>{
-  if(!S.items.length)return;
+  if(!S.items.length&&S.names.length===2&&S.names[0]==='1'&&S.names[1]==='2')return;
   if(!armed){
     armed=true;
     $('reset').textContent='もう一度タップで全削除（元に戻せません）';
@@ -137,7 +190,7 @@ $('reset').onclick=()=>{
     tm=setTimeout(disarm,4000);
     return;
   }
-  disarm();S.items=[];save();render();
+  disarm();S={names:['1','2'],items:[],who:0};save();render();
 };
 render();
 </script>
